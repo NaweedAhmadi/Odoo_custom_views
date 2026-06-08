@@ -1,0 +1,89 @@
+<t t-name="sol_report_pdf_template">
+  <t t-call="web.html_container">
+      
+      <t t-set="company" t-value="docs and docs[0].order_id.company_id or res_company"/>
+
+        <div style="width: 100%; margin-bottom: 15px; display: table;">
+          <div style="display: table-cell; width: 80px; vertical-align: middle;">
+            <img t-if="company.logo" t-att-src="image_data_uri(company.logo)" style="max-height: 70px; max-width: 70px;"/>
+          </div>
+        
+          <div style="display: table-cell; vertical-align: middle;">
+            <h2 style="margin: 0;">
+              <span t-esc="company.name"/>
+            </h2>
+          </div>
+        </div>
+        
+    <div class="page">
+      <h2 style="margin-bottom: 1px;">Route Load Summary Report</h2>
+
+      <t t-if="not docs">
+        <p>No records selected.</p>
+      </t>
+
+      <t t-if="docs">
+        <t t-set="dates" t-value="sorted(set(line.order_id.x_studio_delivery_date for line in docs if line.order_id.x_studio_delivery_date))"/>
+
+        <t t-foreach="dates" t-as="report_date">
+          <h3 style="margin-top: 20px;">Delivery Date: <span t-esc="report_date"/></h3>
+
+          <t t-set="date_lines" t-value="docs.filtered(lambda l: l.order_id.x_studio_delivery_date and l.order_id.x_studio_delivery_date == report_date)"/>
+          <t t-set="routes" t-value="sorted(set(line.x_studio_route for line in date_lines if line.x_studio_route))"/>
+
+          <table style="width: 100%; border-collapse: collapse; margin-bottom: 25px; table-layout: fixed;">
+            <thead>
+              <tr style="background-color: #f2f2f2;">
+                <th style="width: 55%; border: 1px solid #999; padding: 8px; text-align: left;">Routes</th>
+                <th style="width: 15%; border: 1px solid #999; padding: 8px; text-align: right;">Total Weight</th>
+                <th style="width: 15%; border: 1px solid #999; padding: 8px; text-align: right;">Total Cases</th>
+                <th style="width: 15%; border: 1px solid #999; padding: 8px; text-align: right;">Total Units</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              <t t-foreach="routes" t-as="route">
+                <t t-set="route_lines" t-value="date_lines.filtered(lambda l: l.x_studio_route == route)"/>
+                <t t-set="route_weight" t-value="sum(line.x_studio_line_total_weight or 0 for line in route_lines)"/>
+                <t t-set="route_cases" t-value="sum(line.product_uom_qty or 0 for line in route_lines if line.product_uom and line.product_uom.name.lower() in ['case', 'cases'])"/>
+                <t t-set="route_units" t-value="sum(line.product_uom_qty or 0 for line in route_lines if line.product_uom and line.product_uom.name.lower() in ['unit', 'units', 'each'])"/>
+
+                <tr>
+                  <td style="border: 1px solid #999; padding: 8px;">
+                    Route <span t-esc="route"/>
+                  </td>
+                  <td style="border: 1px solid #999; padding: 8px; text-align: right;">
+                    <span t-esc="round(route_weight, 2)"/>
+                  </td>
+                  <td style="border: 1px solid #999; padding: 8px; text-align: right;">
+                    <span t-esc="route_cases"/>
+                  </td>
+                  <td style="border: 1px solid #999; padding: 8px; text-align: right;">
+                    <span t-esc="route_units"/>
+                  </td>
+                </tr>
+              </t>
+
+              <t t-set="date_weight" t-value="sum(line.x_studio_line_total_weight or 0 for line in date_lines)"/>
+              <t t-set="date_cases" t-value="sum(line.product_uom_qty or 0 for line in date_lines if line.product_uom and line.product_uom.name.lower() in ['case', 'cases'])"/>
+              <t t-set="date_units" t-value="sum(line.product_uom_qty or 0 for line in date_lines if line.product_uom and line.product_uom.name.lower() in ['unit', 'units', 'each'])"/>
+
+              <tr style="font-weight: bold; background-color: #f8f8f8;">
+                <td style="border: 1px solid #999; padding: 8px;">Grand Total</td>
+                <td style="border: 1px solid #999; padding: 8px; text-align: right;">
+                  <span t-esc="round(date_weight, 2)"/>
+                </td>
+                <td style="border: 1px solid #999; padding: 8px; text-align: right;">
+                  <span t-esc="date_cases"/>
+                </td>
+                <td style="border: 1px solid #999; padding: 8px; text-align: right;">
+                  <span t-esc="date_units"/>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </t>
+      </t>
+    </div>
+  </t>
+</t>
