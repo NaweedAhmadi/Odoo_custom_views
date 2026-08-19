@@ -17,7 +17,14 @@
         </div>
 
       <div class="page" style="font-size: 13px;">
-        <h2 style="margin-bottom: 15px;">Warehouse Receiving Worksheet</h2>
+        <h2 style="margin-bottom: 15px;">
+          <span>Warehouse Receiving Worksheet - </span>
+          <t t-if="o.backorder_id">
+            <span style="font-weight: bold; background-color: #ffff00;">
+              BACKORDER
+            </span>
+          </t>
+        </h2>
 
         <!-- Receipt Number + Barcode -->
         <table style="width: 100%; margin-bottom: 20px;">
@@ -113,7 +120,8 @@
             <t t-foreach="o.move_ids_without_package" t-as="line">
               <tr>
                 <td style="border: 1px solid #777; padding: 10px; height: 40px; word-wrap: break-word; overflow-wrap: break-word; white-space: normal; vertical-align: top;">
-                  <span t-esc="line.purchase_line_id.name or line.name or line.product_id.display_name"/>
+                  <!--<span t-esc="line.purchase_line_id.name or line.name or line.product_id.display_name"/>-->
+                  <span t-esc="                     '[%s] %s' % (                     (                     line.product_id.seller_ids.filtered(lambda s: s.partner_id == o.partner_id)[:1].product_code                     or line.product_id.default_code                     ),                     line.product_id.name                     )                   "/>
                 </td>
 
                 <td style="border: 1px solid #777; padding: 10px; word-wrap: break-word; overflow-wrap: break-word; white-space: normal; vertical-align: top;">
@@ -131,8 +139,36 @@
                 </td>
 
                 <td style="border: 1px solid #777; padding: 10px; vertical-align: top;">
-                  <span t-esc="'%g' % line.product_uom_qty"/>
-                  <span t-esc="line.product_uom.name"/>
+
+                  <t t-if="line.purchase_line_id and line.purchase_line_id.product_uom">
+                
+                    <t t-set="po_uom" t-value="line.purchase_line_id.product_uom"/>
+                    <t t-set="stock_uom" t-value="line.product_uom"/>
+                
+                    <!-- Convert stock quantity back into PO UoM -->
+                    <t t-set="po_qty"
+                       t-value="stock_uom._compute_quantity(line.product_uom_qty, po_uom)"/>
+                
+                    <strong>
+                      <span t-esc="'%g' % po_qty"/>
+                      <span t-esc="po_uom.name.split(' of ')[0]"/>
+                    </strong>
+                
+                    <t t-if="po_uom != stock_uom">
+                      <br/>
+                      <span style="font-size: 11px;">
+                        (<span t-esc="'%g' % line.product_uom_qty"/>
+                        <span t-esc="stock_uom.name"/>)
+                      </span>
+                    </t>
+                
+                  </t>
+                
+                  <t t-else="">
+                    <span t-esc="'%g' % line.product_uom_qty"/>
+                    <span t-esc="line.product_uom.name"/>
+                  </t>
+                
                 </td>
 
                 <td style="border: 1px solid #777; padding: 10px; vertical-align: top;"/>
