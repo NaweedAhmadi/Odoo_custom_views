@@ -57,8 +57,8 @@
         <!-- PRINT CATEGORY ONLY IF IT HAS RESERVED ITEMS -->
         <t t-if="category_lines">
 
-          <!-- GROUP AND SORT BY ITEM CODE -->
-          <t t-set="group_keys" t-value="sorted(                set(                  (                    l.product_id.default_code or '',                    l.location_id.id,                    l.product_id.id,                    l.lot_id.id or 0,                    l.product_uom_id.id                  )                  for l in category_lines                )              )"/>
+          <!-- GROUP AND SORT BY LOCATION, THEN ITEM CODE -->
+          <t t-set="group_keys" t-value="sorted(                set(                  (                    (l.location_id.name or '').upper(),                    l.product_id.default_code or '',                    l.location_id.id,                    l.product_id.id,                    l.lot_id.id or 0,                    l.product_uom_id.id                  )                  for l in category_lines                )              )"/>
 
           <!-- CATEGORY TOTAL CASES -->
           <t t-set="total_cases" t-value="sum(                l.quantity                for l in category_lines                if l.product_uom_id                and 'case' in l.product_uom_id.name.lower()              )"/>
@@ -254,7 +254,7 @@
                 <!-- LOOP THROUGH CATEGORY ITEMS -->
                 <t t-foreach="group_keys" t-as="key">
 
-                  <t t-set="group_lines" t-value="category_lines.filtered(                        lambda l:                        (                          l.product_id.default_code or '',                          l.location_id.id,                          l.product_id.id,                          l.lot_id.id or 0,                          l.product_uom_id.id                        ) == key                      )"/>
+                  <t t-set="group_lines" t-value="category_lines.filtered(                        lambda l:                        (                          (l.location_id.name or '').upper(),                          l.product_id.default_code or '',                          l.location_id.id,                          l.product_id.id,                          l.lot_id.id or 0,                          l.product_uom_id.id                        ) == key                      )"/>
 
                   <t t-if="group_lines">
 
@@ -294,9 +294,7 @@
                       <!-- QUANTITY AND PACK SIZE -->
                       <td style="border:1px solid #999;                                  padding:8px 3px;                                  text-align:center;                                  vertical-align:middle;                                  font-size:12px;">
 
-                        <span t-esc="'%g' % group_qty"/>
-                        <span>&#160;</span>
-                        <span t-esc="line.product_uom_id.name"/>
+                        <span t-esc="'%g %s' % (group_qty, line.product_uom_id.name or '')"/>
 
                       </td>
 

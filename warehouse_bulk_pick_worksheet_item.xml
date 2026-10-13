@@ -1,0 +1,365 @@
+<t t-name="warehouse_bulk_pick_worksheet">
+  <t t-call="web.html_container">
+
+    <t t-if="docs">
+
+      <!-- COMPANY -->
+      <t t-set="company" t-value="docs[0].company_id or res_company"/>
+
+      <!-- SELECTED SALES ORDER STOCK MOVES -->
+      <t t-set="sale_moves" t-value="docs.mapped('order_line.move_ids')"/>
+
+      <!-- UPSTREAM STOCK MOVES -->
+      <t t-set="upstream_moves" t-value="sale_moves.mapped('move_orig_ids')"/>
+
+      <!-- BULK PICK MOVES -->
+      <t t-set="bulk_moves" t-value="(sale_moves | upstream_moves).filtered(            lambda m:            m.picking_id            and m.picking_id.picking_type_id            and 'Bulk Pick' in m.picking_id.picking_type_id.name            and m.state not in ('done', 'cancel')          )"/>
+
+      <!-- ACTUAL RESERVED MOVE LINES -->
+      <t t-set="reserved_lines" t-value="bulk_moves.mapped('move_line_ids').filtered(            lambda l:            l.quantity &gt; 0            and l.move_id.state not in ('done', 'cancel')          )"/>
+
+      <!-- DELIVERY DATES -->
+      <t t-set="delivery_dates" t-value="sorted(set(            o.commitment_date.date()            for o in docs            if o.commitment_date          ))"/>
+
+      <!--
+        STORAGE CATEGORIES
+
+        D, S, G = DRY
+        R       = REFRIGERATED
+        F       = FROZEN
+
+        The prefix is read from the short location name.
+      -->
+
+      <t t-set="categories" t-value="[            ('DRY BULK PICK', 'DRY', '#fff1dc', '#d97706', '#8a4b08'),            ('REFRIGERATED BULK PICK', 'REFRIGERATED', '#e3f6ec', '#21966a', '#176b4d'),            ('FROZEN BULK PICK', 'FROZEN', '#e4f0ff', '#2374c6', '#174f8a')          ]"/>
+
+      <!-- Number of non-empty category sections already printed. -->
+      <t t-set="printed_categories" t-value="0"/>
+
+      <!-- GENERATE ONE PAGE PER STORAGE CATEGORY -->
+      <t t-foreach="categories" t-as="category">
+
+        <t t-set="category_title" t-value="category[0]"/>
+
+        <t t-set="category_type" t-value="category[1]"/>
+
+        <t t-set="category_color" t-value="category[2]"/>
+
+        <t t-set="category_accent" t-value="category[3]"/>
+
+        <t t-set="category_dark" t-value="category[4]"/>
+
+        <t t-set="category_row_color" t-value="'#fffaf3' if category_type == 'DRY' else ('#f3fbf7' if category_type == 'REFRIGERATED' else '#f3f8ff')"/>
+
+        <!-- FILTER RESERVED INVENTORY BY LOCATION PREFIX -->
+        <t t-set="category_lines" t-value="reserved_lines.filtered(              lambda l:              (                category_type == 'DRY'                and (l.location_id.name or '').upper().startswith(('D', 'S', 'G'))              )              or              (                category_type == 'REFRIGERATED'                and (l.location_id.name or '').upper().startswith('R')              )              or              (                category_type == 'FROZEN'                and (l.location_id.name or '').upper().startswith('F')              )            )"/>
+
+        <!-- PRINT CATEGORY ONLY IF IT HAS RESERVED ITEMS -->
+        <t t-if="category_lines">
+
+          <!-- GROUP AND SORT BY ITEM CODE -->
+          <t t-set="group_keys" t-value="sorted(                set(                  (                    l.product_id.default_code or '',                    l.location_id.id,                    l.product_id.id,                    l.lot_id.id or 0,                    l.product_uom_id.id                  )                  for l in category_lines                )              )"/>
+
+          <!-- CATEGORY TOTAL CASES -->
+          <t t-set="total_cases" t-value="sum(                l.quantity                for l in category_lines                if l.product_uom_id                and 'case' in l.product_uom_id.name.lower()              )"/>
+
+          <!-- CATEGORY TOTAL UNITS -->
+          <t t-set="total_units" t-value="sum(                l.quantity                for l in category_lines                if l.product_uom_id                and 'unit' in l.product_uom_id.name.lower()              )"/>
+
+          <!-- NEW PAGE FOR EACH CATEGORY -->
+          <div class="page"
+               t-att-style="'font-family:Arial,sans-serif; font-size:11px; color:#101828; padding:10px 4px 0 4px; page-break-before:%s;' % ('always' if printed_categories else 'auto')">
+
+            <!-- COMPANY HEADER -->
+            <table style="width:100%; border-collapse:collapse; margin-bottom:14px;">
+
+              <tr>
+
+                <td style="width:72px; vertical-align:middle; border:none;">
+
+                  <img t-if="company.logo" t-att-src="image_data_uri(company.logo)" style="max-height:64px; max-width:64px;"/>
+
+                </td>
+
+                <td style="width:35%; vertical-align:middle; border:none;">
+
+                  <span style="font-size:22px; font-weight:800; color:#050b16;">
+                    <span t-esc="company.name"/>
+                  </span>
+
+                </td>
+
+                <td style="vertical-align:middle; text-align:right; border:none;">
+                  <span style="font-size:22px; font-weight:800; color:#082557;">
+                    WAREHOUSE BULK PICK WORKSHEET
+                  </span>
+                </td>
+
+              </tr>
+
+            </table>
+
+            <!-- CATEGORY SUBTITLE -->
+            <div t-attf-style="background-color:{{ category_color }}; padding:13px 16px; margin-bottom:12px; border-left:7px solid {{ category_accent }}; border-radius:5px;">
+
+              <span t-attf-style="font-size:25px; font-weight:800; color:{{ category_dark }}; line-height:1.15;">
+
+                <span t-esc="category_title"/>
+
+              </span>
+
+            </div>
+
+            <!-- TOP INFORMATION SECTION -->
+            <table style="width:100%; table-layout:fixed; border-collapse:collapse; margin:0 0 12px 0;">
+
+              <tr>
+
+                <!-- DELIVERY DATE -->
+                <td t-attf-style="width:20%; background-color:{{ category_color }}; padding:7px; vertical-align:top; border-right:7px solid #ffffff; color:{{ category_dark }};">
+
+                  <div style="font-size:15px; font-weight:800; text-align:center; margin-bottom:7px;">
+
+                    Delivery Date
+
+                  </div>
+
+                  <div style="background-color:#ffffff; padding:14px 3px; text-align:center; font-size:22px; font-weight:800;">
+
+                    <t t-if="len(delivery_dates) == 1">
+                      <span t-esc="delivery_dates[0].strftime('%m-%d-%Y')"/>
+                    </t>
+
+                    <t t-elif="len(delivery_dates) &gt; 1">
+                      Multiple Dates
+                    </t>
+
+                    <t t-else="">
+                      -
+                    </t>
+
+                  </div>
+
+                </td>
+
+                <!-- TOTAL RESERVED -->
+                <td t-attf-style="width:27%; background-color:{{ category_color }}; padding:7px; vertical-align:top; border-right:7px solid #ffffff; color:{{ category_dark }};">
+
+                  <div style="font-size:15px; font-weight:800; text-align:center; margin-bottom:7px;">
+
+                    Total Reserved
+
+                  </div>
+
+                  <table style="width:100%; border-collapse:collapse; background-color:#ffffff;">
+
+                    <tr>
+
+                      <!-- TOTAL CASES -->
+                      <td style="width:50%; background-color:#ffffff; padding:7px 3px; text-align:center; border-right:1px solid #b8d7ee;">
+
+                        <div style="font-size:10px;                                     margin-bottom:5px;">
+
+                          Total Cases
+
+                        </div>
+
+                        <div style="font-size:22px; font-weight:800;">
+
+                          <span t-esc="'%g' % total_cases"/>
+
+                        </div>
+
+                      </td>
+
+                      <!-- TOTAL UNITS -->
+                      <td style="width:50%; background-color:#ffffff; padding:7px 3px; text-align:center; border:none;">
+
+                        <div style="font-size:10px;                                     margin-bottom:5px;">
+
+                          Total Units
+
+                        </div>
+
+                        <div style="font-size:22px; font-weight:800;">
+
+                          <span t-esc="'%g' % total_units"/>
+
+                        </div>
+
+                      </td>
+
+                    </tr>
+
+                  </table>
+
+                </td>
+
+                <!-- NOTES -->
+                <td style="width:53%; background-color:#f1f3f5; padding:12px 14px; vertical-align:top;">
+
+                  <div style="font-size:14px; font-weight:800; color:#082557; margin-bottom:6px;">
+                    NOTES:
+                  </div>
+
+                  <div style="font-size:12px; line-height:1.55; color:#111827;">
+                    <div>&#8226; Pick only the listed quantities from the specified locations.</div>
+                    <div>&#8226; Scan the lot barcode to confirm the correct lot.</div>
+                    <div>&#8226; Contact the warehouse supervisor for discrepancies.</div>
+                  </div>
+
+                </td>
+
+              </tr>
+
+            </table>
+
+            <!-- CATEGORY PICKING TABLE -->
+            <table style="width:100%; border-collapse:collapse; table-layout:fixed; font-size:10px; border:1px solid #c9d7e4;">
+
+              <thead>
+
+                <tr t-attf-style="background-color:{{ category_dark }}; color:#ffffff; font-weight:bold; font-size:12px;">
+
+                  <th style="width:4%;                              border:1px solid #777;                              padding:7px 3px;                              text-align:center;">
+                    #
+                  </th>
+
+                  <th style="width:15%;                              border:1px solid #777;                              padding:7px 4px;                              text-align:left;">
+                    Location
+                  </th>
+
+                  <th style="width:43%;                              border:1px solid #777;                              padding:7px 5px;                              text-align:left;">
+                    Item Description
+                  </th>
+
+                  <th style="width:12%;                              border:1px solid #777;                              padding:7px 3px;                              text-align:center;">
+                    Qty
+                  </th>
+
+                  <th style="width:12%;                              border:1px solid #777;                              padding:7px 4px;                              text-align:center;">
+                    Expiration Date
+                  </th>
+
+                  <th style="width:14%;                              border:1px solid #777;                              padding:7px 4px;                              text-align:center;">
+                    Lot Barcode
+                  </th>
+
+                </tr>
+
+              </thead>
+
+              <tbody>
+
+                <!-- LOOP THROUGH CATEGORY ITEMS -->
+                <t t-foreach="group_keys" t-as="key">
+
+                  <t t-set="group_lines" t-value="category_lines.filtered(                        lambda l:                        (                          l.product_id.default_code or '',                          l.location_id.id,                          l.product_id.id,                          l.lot_id.id or 0,                          l.product_uom_id.id                        ) == key                      )"/>
+
+                  <t t-if="group_lines">
+
+                    <t t-set="line" t-value="group_lines[0]"/>
+
+                    <t t-set="group_qty" t-value="sum(l.quantity for l in group_lines)"/>
+
+                    <!-- ALTERNATING ROW BACKGROUND -->
+                    <t t-set="row_background" t-value="category_row_color if key_index % 2 else '#ffffff'"/>
+
+                    <tr t-attf-style="background-color:{{ row_background }}; page-break-inside:avoid;">
+
+                      <!-- ROW NUMBER -->
+                      <td style="border:1px solid #999;                                  padding:8px 3px;                                  text-align:center;                                  vertical-align:middle;                                  font-size:12px;">
+
+                        <span t-esc="key_index + 1"/>
+
+                      </td>
+
+                      <!-- LOCATION -->
+                      <td style="border:1px solid #999;                                  padding:8px 4px;                                  vertical-align:middle;                                  font-weight:bold;                                  font-size:12px;                                  word-wrap:break-word;">
+
+                        <span t-esc="line.location_id.name"/>
+
+                      </td>
+
+                      <!-- ITEM CODE AND DESCRIPTION -->
+                      <td style="border:1px solid #999;                                  padding:8px 5px;                                  vertical-align:middle;                                  font-size:12px;                                  color:#101828;                                  word-wrap:break-word;">
+
+                        <t t-if="line.product_id.default_code">
+                          <span t-esc="'[' + line.product_id.default_code + '] '"/>
+                        </t>
+                        <span t-esc="line.product_id.name"/>
+
+                      </td>
+
+                      <!-- QUANTITY AND PACK SIZE -->
+                      <td style="border:1px solid #999;                                  padding:8px 3px;                                  text-align:center;                                  vertical-align:middle;                                  font-size:12px;">
+
+                        <span t-esc="'%g %s' % (group_qty, line.product_uom_id.name or '')"/>
+
+                      </td>
+
+                      <!-- EXPIRATION DATE -->
+                      <td style="border:1px solid #999;                                  padding:8px 4px;                                  text-align:center;                                  vertical-align:middle;                                  font-size:12px;                                  font-weight:bold;">
+
+                        <t t-if="line.lot_id and line.lot_id.expiration_date">
+
+                          <span t-esc="line.lot_id.expiration_date.strftime('%m-%d-%Y')"/>
+
+                        </t>
+
+                        <t t-else="">
+                          -
+                        </t>
+
+                      </td>
+
+                      <!-- LOT BARCODE -->
+                      <td style="border:1px solid #999;                                  padding:7px 3px;                                  text-align:center;                                  vertical-align:middle;">
+
+                        <t t-if="line.lot_id and line.lot_id.name">
+
+                          <!-- LOT NUMBER TEXT -->
+                          <div style="font-size:8px;                                       margin-bottom:4px;                                       word-wrap:break-word;">
+
+                            <span t-esc="line.lot_id.name"/>
+
+                          </div>
+
+                          <!-- WORKING CODE 128 BARCODE -->
+                          <div style="text-align:center;">
+
+                            <span t-field="line.lot_id.name" t-options="{                                     'widget': 'barcode',                                     'symbology': 'Code128',                                     'width': 500,                                     'height': 100,                                     'img_style': 'width:95px;height:35px;'                                   }"/>
+
+                          </div>
+
+                        </t>
+
+                        <t t-else="">
+                          -
+                        </t>
+
+                      </td>
+
+                    </tr>
+
+                  </t>
+
+                </t>
+
+              </tbody>
+
+            </table>
+
+          </div>
+
+          <!-- Ensure the next non-empty category starts on a new page. -->
+          <t t-set="printed_categories" t-value="printed_categories + 1"/>
+
+        </t>
+
+      </t>
+
+    </t>
+
+  </t>
+</t>
