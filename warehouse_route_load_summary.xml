@@ -1,0 +1,170 @@
+<t t-name="warehouse_route_load_summary">
+  <t t-call="web.html_container">
+
+    <t t-if="docs">
+
+      <t t-set="company" t-value="docs[0].company_id or res_company"/>
+
+      <!-- COMPANY HEADER -->
+      <div style="width:100%; margin-bottom:15px; display:table;">
+
+        <div style="display:table-cell; width:80px; vertical-align:middle;">
+          <img t-if="company.logo" t-att-src="image_data_uri(company.logo)" style="max-height:70px; max-width:70px;"/>
+        </div>
+
+        <div style="display:table-cell; vertical-align:middle;">
+          <h2 style="margin:0;">
+            <span t-esc="company.name"/>
+          </h2>
+        </div>
+
+      </div>
+
+      <div class="page" style="font-size:13px;">
+
+        <h2 style="margin-bottom:20px;">
+          WAREHOUSE ROUTE LOAD SUMMARY
+        </h2>
+
+        <!-- GROUP BY DELIVERY DATE -->
+        <t t-set="delivery_dates" t-value="sorted(set(              o.commitment_date.date()              for o in docs              if o.commitment_date            ))"/>
+
+        <t t-foreach="delivery_dates" t-as="delivery_date">
+
+          <t t-set="date_orders" t-value="docs.filtered(                lambda o: o.commitment_date                and o.commitment_date.date() == delivery_date              )"/>
+
+          <!-- DELIVERY DATE HEADER -->
+          <h3 style="background-color:#d9d9d9;                      border:1px solid #777;                      padding:9px;                      margin-top:20px;">
+
+            DELIVERY DATE:
+            <span t-esc="delivery_date.strftime('%m-%d-%Y')"/>
+
+          </h3>
+
+          <!-- UNIQUE ROUTES -->
+          <t t-set="routes" t-value="sorted(set(                str(o.x_studio_delivery_route or 'Unassigned')                for o in date_orders              ))"/>
+
+          <!-- ROUTE TABLE -->
+          <table style="width:100%;                         border-collapse:collapse;                         font-size:12px;                         margin-bottom:20px;">
+
+            <thead>
+              <tr style="background-color:#eeeeee;">
+
+                <th style="border:1px solid #777;padding:8px;text-align:left;">
+                  Route
+                </th>
+
+                <th style="border:1px solid #777;padding:8px;text-align:right;">
+                  Sales Orders
+                </th>
+
+                <th style="border:1px solid #777;padding:8px;text-align:right;">
+                  Total Cases
+                </th>
+
+                <th style="border:1px solid #777;padding:8px;text-align:right;">
+                  Total Units
+                </th>
+
+                <th style="border:1px solid #777;padding:8px;text-align:right;">
+                  Total Weight (lb)
+                </th>
+
+              </tr>
+            </thead>
+
+            <tbody>
+
+              <!-- DAILY TOTAL VARIABLES -->
+              <t t-set="daily_cases" t-value="0"/>
+              <t t-set="daily_units" t-value="0"/>
+              <t t-set="daily_weight" t-value="0"/>
+
+              <!-- LOOP THROUGH ROUTES -->
+              <t t-foreach="routes" t-as="route">
+
+                <t t-set="route_orders" t-value="date_orders.filtered(                      lambda o: str(o.x_studio_delivery_route or 'Unassigned') == route                    )"/>
+
+                <t t-set="route_lines" t-value="route_orders.mapped('order_line').filtered(                      lambda l: not l.display_type                    )"/>
+
+                <!-- TOTAL CASES -->
+                <t t-set="route_cases" t-value="sum(                      l.product_uom_qty                      for l in route_lines                      if l.product_uom                      and 'case' in l.product_uom.name.lower()                    )"/>
+
+                <!-- TOTAL UNITS -->
+                <t t-set="route_units" t-value="sum(                      l.product_uom_qty                      for l in route_lines                      if l.product_uom                      and 'unit' in l.product_uom.name.lower()                    )"/>
+
+                <!-- TOTAL WEIGHT -->
+                <t t-set="route_weight" t-value="sum(                      l.product_uom._compute_quantity(                        l.product_uom_qty,                        l.product_id.uom_id                      ) * l.product_id.weight                      for l in route_lines                    )"/>
+
+                <!-- DAILY TOTALS -->
+                <t t-set="daily_cases" t-value="daily_cases + route_cases"/>
+
+                <t t-set="daily_units" t-value="daily_units + route_units"/>
+
+                <t t-set="daily_weight" t-value="daily_weight + route_weight"/>
+
+                <!-- ROUTE ROW -->
+                <tr>
+
+                  <td style="border:1px solid #777;padding:9px;">
+                    <strong>
+                      <span t-esc="route"/>
+                    </strong>
+                  </td>
+
+                  <td style="border:1px solid #777;padding:9px;text-align:right;">
+                    <span t-esc="len(route_orders)"/>
+                  </td>
+
+                  <td style="border:1px solid #777;padding:9px;text-align:right;">
+                    <span t-esc="'%g' % route_cases"/>
+                  </td>
+
+                  <td style="border:1px solid #777;padding:9px;text-align:right;">
+                    <span t-esc="'%g' % route_units"/>
+                  </td>
+
+                  <td style="border:1px solid #777;padding:9px;text-align:right;">
+                    <span t-esc="'{:,.2f}'.format(route_weight)"/>
+                  </td>
+
+                </tr>
+
+              </t>
+
+              <!-- DAILY TOTAL ROW -->
+              <tr style="background-color:#d9d9d9;font-weight:bold;">
+
+                <td style="border:1px solid #777;padding:9px;">
+                  DAILY TOTAL
+                </td>
+
+                <td style="border:1px solid #777;padding:9px;text-align:right;">
+                  <span t-esc="len(date_orders)"/>
+                </td>
+
+                <td style="border:1px solid #777;padding:9px;text-align:right;">
+                  <span t-esc="'%g' % daily_cases"/>
+                </td>
+
+                <td style="border:1px solid #777;padding:9px;text-align:right;">
+                  <span t-esc="'%g' % daily_units"/>
+                </td>
+
+                <td style="border:1px solid #777;padding:9px;text-align:right;">
+                  <span t-esc="'{:,.2f}'.format(daily_weight)"/>
+                </td>
+
+              </tr>
+
+            </tbody>
+          </table>
+
+        </t>
+
+      </div>
+
+    </t>
+
+  </t>
+</t>

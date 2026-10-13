@@ -1,0 +1,559 @@
+<t t-name="purchase.report_purchasequotation_document_copy_2">
+  <t t-call="web.html_container">
+
+    <t t-foreach="docs" t-as="o">
+      <t t-set="company" t-value="o.company_id or res_company"/>
+
+      <!-- COMPANY HEADER -->
+      <div style="width: 100%; margin-bottom: 15px; display: table;">
+        <div style="display: table-cell; width: 80px; vertical-align: middle;">
+          <img t-if="company.logo" t-att-src="image_data_uri(company.logo)" style="max-height: 70px; max-width: 70px;"/>
+        </div>
+
+        <div style="display: table-cell; vertical-align: middle;">
+          <h2 style="margin: 0;">
+            <span t-esc="company.name"/>
+          </h2>
+        </div>
+      </div>
+
+
+      <div class="page" style="font-size: 13px;">
+
+        <!-- DOCUMENT TITLE -->
+        <h2 style="margin-bottom: 15px;">
+          PURCHASE ORDER
+        </h2>
+
+
+        <!-- PO NUMBER + BARCODE -->
+        <table style="margin-bottom: 18px; width: auto;">
+          <tr>
+            <td style="font-size: 36px;                        font-weight: bold;                        vertical-align: middle;                        white-space: nowrap;">
+              <span t-esc="o.name"/>
+            </td>
+
+            <!-- 40px space between PO number and barcode -->
+            <td style="width: 40px;">
+            </td>
+
+            <td style="vertical-align: middle;">
+              <span t-field="o.name" t-options="{                       'widget': 'barcode',                       'symbology': 'Code128',                       'width': 600,                       'height': 100,                       'img_style': 'width:220px;height:45px;'                     }"/>
+            </td>
+          </tr>
+        </table>
+
+
+        <!-- PO INFORMATION - SINGLE ROW / SIX COLUMNS -->
+        <table style="width: 100%;                       border-collapse: collapse;                       margin-bottom: 18px;">
+          <tr>
+
+            <!-- Buyer -->
+            <td style="width: 12%;                        border: 1px solid #777;                        padding: 7px;                        font-weight: bold;                        background-color: #eeeeee;">
+              Buyer
+            </td>
+
+            <td style="width: 21%;                        border: 1px solid #777;                        padding: 7px;">
+              <span t-esc="o.user_id.name if o.user_id else ''"/>
+            </td>
+
+
+            <!-- Order Date -->
+            <td style="width: 13%;                        border: 1px solid #777;                        padding: 7px;                        font-weight: bold;                        background-color: #eeeeee;">
+              Order Date
+            </td>
+
+            <td style="width: 17%;                        border: 1px solid #777;                        padding: 7px;">
+              <span t-esc="o.date_order.strftime('%m-%d-%Y') if o.date_order else ''"/>
+            </td>
+
+
+            <!-- Expected Delivery -->
+            <td style="width: 18%;                        border: 1px solid #777;                        padding: 7px;                        font-weight: bold;                        background-color: #eeeeee;">
+              Expected Delivery
+            </td>
+
+            <td style="width: 19%;                        border: 1px solid #777;                        padding: 7px;">
+
+              <t t-set="planned_dates" t-value="o.order_line.filtered(lambda l: not l.display_type and l.date_planned).mapped('date_planned')"/>
+
+              <span t-esc="min(planned_dates).strftime('%m-%d-%Y') if planned_dates else ''"/>
+
+            </td>
+
+          </tr>
+        </table>
+
+
+        <!-- VENDOR / SHIP TO -->
+        <table style="width: 100%;                       border-collapse: collapse;                       margin-bottom: 20px;">
+        
+          <tr style="background-color: #d9d9d9;">
+            <td style="width: 50%;                        border: 1px solid #777;                        padding: 7px;                        font-weight: bold;                        font-size: 14px;">
+              VENDOR
+            </td>
+        
+            <td style="width: 50%;                        border: 1px solid #777;                        padding: 7px;                        font-weight: bold;                        font-size: 14px;">
+              SHIP TO
+            </td>
+          </tr>
+        
+        
+          <tr>
+        
+            <!-- =========================
+                 VENDOR
+            ========================== -->
+            <td style="border: 1px solid #777;                        padding: 10px;                        vertical-align: top;                        line-height: 1.5;">
+        
+              <strong>
+                <span t-esc="o.partner_id.name or ''"/>
+              </strong>
+        
+              <br/>
+        
+              <t t-if="o.partner_id.street">
+                <span t-esc="o.partner_id.street"/>
+                <br/>
+              </t>
+        
+              <t t-if="o.partner_id.street2">
+                <span t-esc="o.partner_id.street2"/>
+                <br/>
+              </t>
+        
+              <span t-esc="o.partner_id.city or ''"/>
+        
+              <t t-if="o.partner_id.state_id">
+                <span>, </span>
+                <span t-esc="o.partner_id.state_id.code or ''"/>
+              </t>
+        
+              <t t-if="o.partner_id.zip">
+                <span> </span>
+                <span t-esc="o.partner_id.zip"/>
+              </t>
+        
+              <t t-if="o.partner_id.phone">
+                <br/>
+                <span t-esc="o.partner_id.phone"/>
+              </t>
+        
+            </td>
+        
+        
+            <!-- =========================
+                 SHIP TO
+            ========================== -->
+            <td style="border: 1px solid #777;                        padding: 10px;                        vertical-align: top;                        line-height: 1.5;">
+        
+        
+              <!-- ========================================
+                   OPTION 2.1 - WILL CALL
+              ========================================= -->
+              <t t-if="o.picking_type_id and '2.1 Receipts' in (o.picking_type_id.name or '')">
+        
+                <div style="font-weight: bold;                             color: #cc0000;                             font-size: 14px;                             margin-bottom: 4px;">
+                  WILL CALL
+                </div>
+        
+                <div>
+                  SCUSD truck will pick up the product from the vendor's warehouse.
+                </div>
+        
+              </t>
+        
+        
+              <!-- ========================================
+                   US COLD
+              ========================================= -->
+              <t t-elif="o.picking_type_id                    and o.picking_type_id.warehouse_id                    and 'US Cold' in (o.picking_type_id.warehouse_id.name or '')">
+        
+                <strong>United States Cold Storage</strong>
+                <br/>
+                3936 Dudley Blvd
+                <br/>
+                McClellan, CA 95652
+        
+              </t>
+        
+        
+              <!-- ========================================
+                   OPTION 1.1 / NORMAL SCUSD RECEIVING
+              ========================================= -->
+              <t t-else="">
+        
+                <t t-if="o.dest_address_id">
+        
+                  <strong>
+                    <span t-esc="o.dest_address_id.name or ''"/>
+                  </strong>
+        
+                  <br/>
+        
+                  <t t-if="o.dest_address_id.street">
+                    <span t-esc="o.dest_address_id.street"/>
+                    <br/>
+                  </t>
+        
+                  <t t-if="o.dest_address_id.street2">
+                    <span t-esc="o.dest_address_id.street2"/>
+                    <br/>
+                  </t>
+        
+                  <span t-esc="o.dest_address_id.city or ''"/>
+        
+                  <t t-if="o.dest_address_id.state_id">
+                    <span>, </span>
+                    <span t-esc="o.dest_address_id.state_id.code or ''"/>
+                  </t>
+        
+                  <t t-if="o.dest_address_id.zip">
+                    <span> </span>
+                    <span t-esc="o.dest_address_id.zip"/>
+                  </t>
+        
+                </t>
+        
+        
+                <t t-elif="o.picking_type_id and o.picking_type_id.warehouse_id">
+        
+                  <t t-set="warehouse_partner" t-value="o.picking_type_id.warehouse_id.partner_id"/>
+        
+                  <strong>
+                    <span t-esc="o.picking_type_id.warehouse_id.name"/>
+                  </strong>
+        
+                  <br/>
+        
+                  <t t-if="warehouse_partner.street">
+                    <span t-esc="warehouse_partner.street"/>
+                    <br/>
+                  </t>
+        
+                  <t t-if="warehouse_partner.street2">
+                    <span t-esc="warehouse_partner.street2"/>
+                    <br/>
+                  </t>
+        
+                  <span t-esc="warehouse_partner.city or ''"/>
+        
+                  <t t-if="warehouse_partner.state_id">
+                    <span>, </span>
+                    <span t-esc="warehouse_partner.state_id.code or ''"/>
+                  </t>
+        
+                  <t t-if="warehouse_partner.zip">
+                    <span> </span>
+                    <span t-esc="warehouse_partner.zip"/>
+                  </t>
+        
+                </t>
+        
+              </t>
+        
+            </td>
+        
+          </tr>
+        
+        </table>
+
+
+        <!-- PRODUCT LINES -->
+        <table style="width: 100%;                       border-collapse: collapse;                       table-layout: fixed;                       font-size: 13px;">
+
+          <thead>
+            <tr style="background-color: #d9d9d9;">
+
+              <th style="width: 30%;                          border: 1px solid #777;                          padding: 7px;                          text-align: left;">
+                Description
+              </th>
+
+              <th style="width: 11%;                          border: 1px solid #777;                          padding: 7px;                          text-align: left;">
+                MFG Code
+              </th>
+
+              <th style="width: 12%;                          border: 1px solid #777;                          padding: 7px;                          text-align: left;">
+                CK Market
+              </th>
+
+              <th style="width: 11%;                          border: 1px solid #777;                          padding: 7px;                          text-align: left;">
+                Pack Size
+              </th>
+
+              <th style="width: 10%;                          border: 1px solid #777;                          padding: 7px;                          text-align: right;">
+                Qty
+              </th>
+
+              <th style="width: 13%;                          border: 1px solid #777;                          padding: 7px;                          text-align: right;">
+                Case/Unit Price
+              </th>
+
+              <th style="width: 13%;                          border: 1px solid #777;                          padding: 7px;                          text-align: right;">
+                Total Amount
+              </th>
+
+            </tr>
+          </thead>
+
+
+          <tbody>
+
+            <t t-foreach="o.order_line" t-as="line">
+
+              <!-- NORMAL PRODUCT LINE -->
+              <t t-if="not line.display_type">
+
+                <tr>
+
+                  <!-- Description -->
+                  <td style="border: 1px solid #777;                              padding: 10px;                              vertical-align: top;                              word-wrap: break-word;                              overflow-wrap: break-word;                              white-space: normal;">
+
+                    <strong>
+                      <span t-esc="line.product_id.name"/>
+                    </strong>
+
+                  </td>
+
+
+                  <!-- MFG Code -->
+                  <td style="border: 1px solid #777;                              padding: 10px;                              vertical-align: top;                              word-wrap: break-word;">
+
+                    <span t-esc="line.product_id.x_studio_mfg_code or ''"/>
+
+                  </td>
+
+
+                  <!-- CK Market -->
+                  <td style="border: 1px solid #777;                              padding: 10px;                              vertical-align: top;">
+
+                    <span t-esc="line.product_id.default_code or ''"/>
+
+                  </td>
+
+
+                  <!-- Pack Size -->
+                  <td style="border: 1px solid #777;                              padding: 10px;                              vertical-align: top;">
+
+                    <span t-esc="line.product_uom.name if line.product_uom else ''"/>
+
+                  </td>
+
+
+                  <!-- Quantity -->
+                  <td style="border: 1px solid #777;                              padding: 10px;                              text-align: right;                              vertical-align: top;                              white-space: nowrap;">
+
+                    <strong>
+                      <span t-esc="'%g' % line.product_qty"/>
+                      <span> </span>
+                      <span t-esc="line.product_uom.name if line.product_uom else ''"/>
+                    </strong>
+
+                  </td>
+
+
+                  <!-- CASE / UNIT PRICE -->
+                  <td style="border: 1px solid #777;                              padding: 10px;                              text-align: right;                              vertical-align: top;                              white-space: nowrap;">
+
+                    <span t-field="line.price_unit" t-options="{                             'widget': 'monetary',                             'display_currency': o.currency_id                           }"/>
+
+                  </td>
+
+
+                  <!-- TOTAL AMOUNT -->
+                  <td style="border: 1px solid #777;                              padding: 10px;                              text-align: right;                              vertical-align: top;                              white-space: nowrap;">
+
+                    <strong>
+                      <span t-field="line.price_subtotal" t-options="{                               'widget': 'monetary',                               'display_currency': o.currency_id                             }"/>
+                    </strong>
+
+                  </td>
+
+                </tr>
+
+              </t>
+
+
+              <!-- SECTION -->
+              <t t-elif="line.display_type == 'line_section'">
+                <tr>
+                  <td colspan="7" style="border: 1px solid #777;                              padding: 8px;                              background-color: #eeeeee;                              font-weight: bold;">
+                    <span t-field="line.name"/>
+                  </td>
+                </tr>
+              </t>
+
+
+              <!-- NOTE -->
+              <t t-elif="line.display_type == 'line_note'">
+                <tr>
+                  <td colspan="7" style="border: 1px solid #777;                              padding: 8px;                              font-style: italic;">
+                    <span t-field="line.name"/>
+                  </td>
+                </tr>
+              </t>
+
+            </t>
+
+          </tbody>
+
+
+          <!-- PO TOTAL -->
+          <tfoot>
+
+            <!-- AMOUNT TOTAL -->
+          <tr>
+            <td colspan="6" style="border: 1px solid #777;                        padding: 9px;                        text-align: right;                        font-weight: bold;                        background-color: #eeeeee;">
+              AMOUNT TOTAL
+            </td>
+        
+            <td style="border: 1px solid #777;                        padding: 9px;                        text-align: right;                        font-weight: bold;                        background-color: #eeeeee;                        white-space: nowrap;">
+        
+              <span t-field="o.amount_total" t-options="{                       'widget': 'monetary',                       'display_currency': o.currency_id                     }"/>
+        
+            </td>
+          </tr>
+        
+        
+          <!-- CASE TOTAL -->
+          <tr>
+        
+            <t t-set="case_total" t-value="sum(                  line.product_qty                  for line in o.order_line                  if not line.display_type                  and line.product_uom                  and 'case' in line.product_uom.name.lower()                )"/>
+        
+            <td colspan="6" style="border: 1px solid #777;                        padding: 8px;                        text-align: right;                        font-weight: bold;">
+              CASE TOTAL
+            </td>
+        
+            <td style="border: 1px solid #777;                        padding: 8px;                        text-align: right;                        font-weight: bold;                        white-space: nowrap;">
+        
+              <span t-esc="'%g' % case_total"/>
+              <span> Cases</span>
+        
+            </td>
+        
+          </tr>
+        
+        
+          <!-- UNIT TOTAL -->
+          <tr>
+        
+            <t t-set="unit_total" t-value="sum(                  line.product_qty                  for line in o.order_line                  if not line.display_type                  and line.product_uom                  and 'unit' in line.product_uom.name.lower()                )"/>
+        
+            <td colspan="6" style="border: 1px solid #777;                        padding: 8px;                        text-align: right;                        font-weight: bold;">
+              UNIT TOTAL
+            </td>
+        
+            <td style="border: 1px solid #777;                        padding: 8px;                        text-align: right;                        font-weight: bold;                        white-space: nowrap;">
+        
+              <span t-esc="'%g' % unit_total"/>
+              <span> Units</span>
+        
+            </td>
+        
+          </tr>
+
+          </tfoot>
+
+        </table>
+
+
+        <!-- NOTES -->
+        <t t-if="o.notes">
+
+          <!-- NOTES / SPECIAL INSTRUCTIONS -->
+            <table style="width: 100%;                           border-collapse: collapse;                           margin-top: 18px;">
+            
+                <tr>
+                    <td style="border: 1px solid #777;                                background-color: #d9d9d9;                                padding: 7px;                                font-weight: bold;">
+                        NOTES / SPECIAL INSTRUCTIONS
+                    </td>
+                </tr>
+            
+                <tr>
+                    <td style="border: 1px solid #777;                                padding: 12px;                                line-height: 1.5;">
+            
+            
+                        <!-- ========================================
+                             US COLD
+                        ========================================= -->
+                        <t t-if="o.picking_type_id                              and o.picking_type_id.warehouse_id                              and 'US Cold' in (o.picking_type_id.warehouse_id.name or '')">
+            
+                            <div style="font-weight: bold;                                         color: #cc0000;                                         font-size: 14px;                                         margin-bottom: 4px;">
+                                Dock Appointment Required
+                            </div>
+            
+                            <div>
+                                Please email
+                                <strong>MPAppointments@uscold.com</strong>
+                                at least
+                                <strong>3 business days before delivery date</strong>
+                                to schedule a delivery appointment.
+                            </div>
+            
+                            <div style="margin-top: 12px;">
+                                <strong>Schedule by phone:</strong>
+                                call (916) 640-2800 ext 2
+                            </div>
+            
+                        </t>
+            
+            
+                        <!-- ========================================
+                             WILL CALL
+                        ========================================= -->
+                        <t t-elif="o.picking_type_id and '2.1 Receipts' in (o.picking_type_id.name or '')">
+            
+                            <div style="font-weight: bold;                                         color: #cc0000;                                         font-size: 14px;                                         margin-bottom: 4px;">
+                                WILL CALL
+                            </div>
+            
+                            <div>
+                                SCUSD truck will pick up the product from the vendor's warehouse.
+                            </div>
+            
+                        </t>
+            
+            
+                        <!-- ========================================
+                             NORMAL SCUSD RECEIVING
+                        ========================================= -->
+                        <t t-else="">
+            
+                            <div style="font-weight: bold;                                         color: #cc0000;                                         font-size: 14px;                                         margin-bottom: 4px;">
+                                Dock Appointments Required
+                            </div>
+            
+                            <div>
+                                Please email
+                                <strong>dock-appointment@scusd.edu</strong>
+                                at least
+                                <strong>3 business days before delivery date.</strong>
+                                Include: PO Number, Contact Name, Phone, Carrier, Pallet/Case Count
+                            </div>
+            
+                            <div style="margin-top: 12px;">
+                                <strong>Warehouse Receiving Hours:</strong>
+                                <br/>
+                                Monday-Friday, 7:00 AM - 1:00 PM
+                            </div>
+            
+                            <div style="margin-top: 12px;">
+                                <strong>To Schedule by Phone:</strong>
+                                call (916) 395-4186
+                            </div>
+            
+                        </t>
+            
+                    </td>
+                </tr>
+            
+            </table>
+
+        </t>
+
+      </div>
+
+    </t>
+
+  </t>
+</t>

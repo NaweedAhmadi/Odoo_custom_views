@@ -1,0 +1,275 @@
+<t t-name="warehouse_waiting_items_report">
+  <t t-call="web.html_container">
+
+    <t t-set="pickings" t-value="docs"/>
+
+    <t t-if="pickings">
+
+      <t t-set="company" t-value="pickings[0].company_id or res_company"/>
+
+      <!-- COMPANY HEADER -->
+      <div style="width:100%; margin-bottom:15px; display:table;">
+
+        <div style="display:table-cell;                     width:80px;                     vertical-align:middle;">
+
+          <img t-if="company.logo" t-att-src="image_data_uri(company.logo)" style="max-height:70px; max-width:70px;"/>
+
+        </div>
+
+        <div style="display:table-cell; vertical-align:middle;">
+          <h2 style="margin:0;">
+            <span t-esc="company.name"/>
+          </h2>
+        </div>
+
+      </div>
+
+      <div class="page" style="font-size:12px;">
+
+        <h2>WAREHOUSE WAITING ITEMS REPORT</h2>
+
+        <p>
+          <strong>Report Date:</strong>
+          <span t-esc="context_timestamp(datetime.datetime.now()).strftime('%m-%d-%Y %I:%M %p')"/>
+        </p>
+
+        <!-- COLLECT WAITING MOVES -->
+        <t t-set="waiting_moves" t-value="pickings.mapped('move_ids').filtered(                lambda m: m.state in ('waiting', 'confirmed', 'partially_available')                and m.product_uom_qty &gt; 0            )"/>
+        
+        <!-- UNIQUE PRODUCTS -->
+        <t t-set="unique_products" t-value="waiting_moves.mapped('product_id')"/>
+        
+        <!-- REPORT TABLE -->
+        <table style="width:100%;                       border-collapse:collapse;                       table-layout:fixed;                       font-size:12px;">
+        
+          <thead>
+            <tr style="background-color:#d9d9d9;">
+        
+              <th style="width:12%;                          border:1px solid #777;                          padding:8px;                          text-align:left;">
+                CK Market
+              </th>
+        
+              <th style="width:34%;                          border:1px solid #777;                          padding:8px;                          text-align:left;">
+                Description
+              </th>
+        
+              <th style="width:12%;                          border:1px solid #777;                          padding:8px;                          text-align:right;">
+                Required
+              </th>
+        
+              <th style="width:12%;                          border:1px solid #777;                          padding:8px;                          text-align:right;">
+                Reserved
+              </th>
+        
+              <th style="width:12%;                          border:1px solid #777;                          padding:8px;                          text-align:right;">
+                Shortage
+              </th>
+        
+              <th style="width:18%;                          border:1px solid #777;                          padding:8px;                          text-align:left;">
+                Waiting Reason
+              </th>
+        
+            </tr>
+          </thead>
+        
+          <tbody>
+        
+            <!-- LOOP THROUGH UNIQUE PRODUCTS -->
+            <t t-foreach="unique_products" t-as="product">
+        
+              <!-- ALL WAITING MOVES FOR THIS PRODUCT -->
+              <t t-set="product_moves" t-value="waiting_moves.filtered(                      lambda m: m.product_id.id == product.id                  )"/>
+              <!-- GET SOURCE LOCATION -->
+<t t-set="source_location" t-value="product_moves[:1].location_id"/>
+
+<!-- GET WAREHOUSE -->
+<t t-set="warehouse" t-value="product_moves[:1].picking_id.picking_type_id.warehouse_id"/>
+
+    <!-- GET ALL INTERNAL WAREHOUSE LOCATIONS -->
+    <t t-set="warehouse_locations" t-value="o.env['stock.location'].search([            ('id', 'child_of', warehouse.view_location_id.id),            ('usage', '=', 'internal')        ]) if warehouse else o.env['stock.location']"/>
+    
+    <!-- GET PRODUCT INVENTORY -->
+    <t t-set="stock_quants" t-value="o.env['stock.quant'].search([            ('product_id', '=', product.id),            ('location_id', 'in', warehouse_locations.ids)        ])"/>
+    
+    <!-- TOTAL PHYSICAL STOCK -->
+    <t t-set="warehouse_on_hand" t-value="sum(q.quantity for q in stock_quants)"/>
+    
+    <!-- TOTAL AVAILABLE STOCK -->
+    <t t-set="warehouse_available" t-value="sum(            q.quantity - q.reserved_quantity            for q in stock_quants        )"/>
+    
+    <!-- STOCK IN BULK PICK SOURCE LOCATION -->
+    <t t-set="source_quants" t-value="stock_quants.filtered(            lambda q: q.location_id.id == source_location.id            or q.location_id.id in            o.env['stock.location'].search([                ('id', 'child_of', source_location.id)            ]).ids        )"/>
+    
+    <t t-set="source_available" t-value="sum(            q.quantity - q.reserved_quantity            for q in source_quants        )"/>
+        
+              <!-- SUM REQUIRED QUANTITY -->
+              <t t-set="required_qty" t-value="sum(                      m.product_uom._compute_quantity(                          m.product_uom_qty,                          product.uom_id                      )                      for m in product_moves                  )"/>
+        
+              <!-- SUM RESERVED QUANTITY -->
+              <t t-set="reserved_qty" t-value="sum(                      m.quantity                      for m in product_moves                  )"/>
+        
+              <!-- CALCULATE UNRESERVED QUANTITY -->
+              <t t-set="shortage" t-value="max(0, required_qty - reserved_qty)"/>
+              
+              <!-- BULK PICK SOURCE LOCATION -->
+            <t t-set="source_location" t-value="product_moves[:1].location_id"/>
+            
+            <!-- ALL RACK LOCATIONS UNDER WH/STOCK -->
+            <t t-set="rack_locations" t-value="o.env['stock.location'].search([                    ('id', 'child_of', source_location.id),                    ('usage', '=', 'internal')                ])"/>
+            
+            <!-- INVENTORY IN ALL RACKS -->
+            <t t-set="rack_quants" t-value="o.env['stock.quant'].search([                    ('product_id', '=', product.id),                    ('location_id', 'in', rack_locations.ids)                ])"/>
+            
+            <!-- TOTAL PHYSICAL INVENTORY -->
+            <t t-set="rack_on_hand" t-value="sum(                    max(0, q.quantity)                    for q in rack_quants                )"/>
+            
+            <!-- TOTAL UNRESERVED INVENTORY -->
+            <t t-set="rack_available" t-value="sum(                    max(0, q.quantity - q.reserved_quantity)                    for q in rack_quants                )"/>
+            
+            <!-- CURRENT DATE -->
+            <t t-set="today" t-value="datetime.datetime.now().date()"/>
+            
+            <!-- EXPIRED INVENTORY -->
+            <t t-set="expired_qty" t-value="sum(                    max(0, q.quantity)                    for q in rack_quants                    if q.lot_id                    and q.lot_id.expiration_date                    and q.lot_id.expiration_date.date() &lt; today                )"/>
+            
+            <!-- USABLE UNRESERVED INVENTORY -->
+            <t t-set="usable_available" t-value="sum(                    max(0, q.quantity - q.reserved_quantity)                    for q in rack_quants                    if not q.lot_id                    or not q.lot_id.expiration_date                    or q.lot_id.expiration_date.date() &gt;= today                )"/>
+            
+            <!-- RESERVED INVENTORY -->
+            <t t-set="rack_reserved" t-value="sum(                    max(0, q.reserved_quantity)                    for q in rack_quants                )"/>
+        
+              <tr>
+        
+                <!-- CK MARKET CODE -->
+                <td style="border:1px solid #777;                            padding:9px;                            vertical-align:top;">
+        
+                  <span t-esc="product.default_code or ''"/>
+        
+                </td>
+        
+                <!-- DESCRIPTION -->
+                <td style="border:1px solid #777;                            padding:9px;                            vertical-align:top;                            word-wrap:break-word;">
+        
+                  <strong>
+                    <span t-esc="product.name"/>
+                  </strong>
+        
+                </td>
+        
+                <!-- REQUIRED -->
+                <td style="border:1px solid #777;                            padding:9px;                            text-align:right;                            vertical-align:top;">
+        
+                  <span t-esc="'%g' % required_qty"/>
+        
+                </td>
+        
+                <!-- RESERVED -->
+                <td style="border:1px solid #777;                            padding:9px;                            text-align:right;                            vertical-align:top;">
+        
+                  <span t-esc="'%g' % reserved_qty"/>
+        
+                </td>
+        
+                <!-- SHORTAGE -->
+                <td style="border:1px solid #777;                            padding:9px;                            text-align:right;                            vertical-align:top;">
+        
+                  <strong>
+                    <span t-esc="'%g' % shortage"/>
+                  </strong>
+        
+                </td>
+        
+                <!-- WAITING REASON -->
+                <td style="border:1px solid #777;                            padding:9px;                            vertical-align:top;">
+                
+                  <!-- PREVIOUS OPERATION -->
+                  <t t-if="product_moves.filtered(                       lambda m: m.state == 'waiting'                       and m.move_orig_ids.filtered(                           lambda origin: origin.state != 'done'                       )                   )">
+                
+                    <strong style="color:#cc6600;">
+                      Waiting for Previous Operation
+                    </strong>
+                
+                  </t>
+                
+                  <!-- OUT OF STOCK -->
+                  <t t-elif="rack_on_hand &lt;= 0">
+                
+                    <strong style="color:#cc0000;">
+                      Out of Stock
+                    </strong>
+                
+                  </t>
+                
+                  <!-- EXPIRED INVENTORY -->
+                  <t t-elif="expired_qty &gt;= rack_on_hand">
+                
+                    <strong style="color:#cc0000;">
+                      Expired Inventory
+                    </strong>
+                
+                  </t>
+                
+                  <!-- RESERVED INVENTORY -->
+                  <t t-elif="usable_available &lt; shortage                              and rack_available + rack_reserved &gt;= shortage                              and rack_reserved &gt; 0">
+                
+                    <strong style="color:#cc6600;">
+                      Reserved for Other Transfers
+                    </strong>
+                
+                  </t>
+                
+                  <!-- INSUFFICIENT STOCK -->
+                  <t t-elif="usable_available &lt; shortage">
+                
+                    <strong style="color:#cc6600;">
+                      Insufficient Available Stock
+                    </strong>
+                
+                  </t>
+                
+                  <!-- RESERVATION ISSUE -->
+                  <t t-else="">
+                
+                    <strong style="color:#006699;">
+                      Reservation Issue
+                    </strong>
+                
+                  </t>
+                
+                </td>
+        
+              </tr>
+        
+            </t>
+        
+            <!-- NO WAITING PRODUCTS -->
+            <t t-if="not unique_products">
+        
+              <tr>
+                <td colspan="6" style="border:1px solid #777;                            padding:15px;                            text-align:center;">
+        
+                  No waiting products found.
+        
+                </td>
+              </tr>
+        
+            </t>
+        
+          </tbody>
+        
+        </table>
+        
+        <!-- SUMMARY -->
+        <div style="margin-top:15px;                     font-size:13px;                     font-weight:bold;">
+        
+          Total Unique Waiting Products:
+          <span t-esc="len(unique_products)"/>
+        
+        </div>
+
+      </div>
+
+    </t>
+
+  </t>
+</t>
