@@ -126,7 +126,7 @@
                   <t t-set="site_units" t-value="sum(                        l.product_uom_qty                        for l in site_lines                        if l.product_uom                        and 'unit' in l.product_uom.name.lower()                      )"/>
 
                   <!-- SITE WEIGHT -->
-                  <t t-set="site_weight" t-value="sum(                        l.product_uom._compute_quantity(                          l.product_uom_qty,                          l.product_id.uom_id                        ) * l.product_id.weight                        for l in site_lines                      )"/>
+                  <t t-set="site_weight" t-value="sum(                        l.x_studio_line_total_weight or 0                        for l in site_lines                      )"/>
 
                   <!-- UPDATE ROUTE TOTALS -->
                   <t t-set="route_cases" t-value="route_cases + site_cases"/>
