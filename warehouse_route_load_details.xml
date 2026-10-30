@@ -1,27 +1,20 @@
 <t t-name="warehouse_route_load_details">
   <t t-call="web.html_container">
-
     <t t-if="docs">
 
       <t t-set="company" t-value="docs[0].company_id or res_company"/>
 
       <!-- COMPANY HEADER -->
       <div style="width:100%; margin-bottom:15px; display:table;">
-
-        <div style="display:table-cell;                     width:80px;                     vertical-align:middle;">
-
+        <div style="display:table-cell; width:80px; vertical-align:middle;">
           <img t-if="company.logo" t-att-src="image_data_uri(company.logo)" style="max-height:70px; max-width:70px;"/>
-
         </div>
 
-        <div style="display:table-cell;                     vertical-align:middle;">
-
+        <div style="display:table-cell; vertical-align:middle;">
           <h2 style="margin:0;">
             <span t-esc="company.name"/>
           </h2>
-
         </div>
-
       </div>
 
       <div class="page" style="font-size:12px;">
@@ -41,10 +34,8 @@
 
           <!-- DELIVERY DATE HEADER -->
           <h3 style="background-color:#d9d9d9;                      border:1px solid #777;                      padding:9px;                      margin-top:20px;">
-
             DELIVERY DATE:
             <span t-esc="delivery_date.strftime('%m-%d-%Y')"/>
-
           </h3>
 
           <!-- UNIQUE ROUTES -->
@@ -58,18 +49,16 @@
           <!-- LOOP THROUGH ROUTES -->
           <t t-foreach="routes" t-as="route">
 
-            <t t-set="route_orders" t-value="date_orders.filtered(                  lambda o:                  str(o.x_studio_delivery_route or 'Unassigned') == route                )"/>
+            <t t-set="route_orders" t-value="date_orders.filtered(                  lambda o:                    str(o.x_studio_delivery_route or 'Unassigned') == route                )"/>
 
             <!-- ROUTE HEADER -->
             <h3 style="background-color:#eeeeee;                        border:1px solid #777;                        padding:8px;                        margin-top:18px;                        margin-bottom:0;">
-
               ROUTE:
               <span t-esc="route"/>
-
             </h3>
 
-            <!-- UNIQUE SITES -->
-            <t t-set="sites" t-value="sorted(set(                  o.partner_shipping_id.id or o.partner_id.id                  for o in route_orders                ))"/>
+           <!-- UNIQUE SITES, SORTED NUMERICALLY BY ROUTE STOP -->
+            <t t-set="sites" t-value="sorted(set(                  (                    int(o.x_studio_route_stop or 9999),                    o.partner_shipping_id.id or o.partner_id.id,                    o.x_studio_route_stop                  )                  for o in route_orders                ))"/>
 
             <!-- ROUTE TOTALS -->
             <t t-set="route_cases" t-value="0"/>
@@ -78,12 +67,10 @@
 
             <!-- SITE DETAILS TABLE -->
             <table style="width:100%;                           border-collapse:collapse;                           font-size:12px;                           margin-bottom:18px;">
-
               <thead>
                 <tr style="background-color:#d9d9d9;">
-
                   <th style="width:6%;                              border:1px solid #777;                              padding:8px;                              text-align:center;">
-                    #
+                    Stop
                   </th>
 
                   <th style="width:42%;                              border:1px solid #777;                              padding:8px;                              text-align:left;">
@@ -101,17 +88,19 @@
                   <th style="width:20%;                              border:1px solid #777;                              padding:8px;                              text-align:right;">
                     Total Weight (lb)
                   </th>
-
                 </tr>
               </thead>
 
               <tbody>
 
-                <!-- LOOP THROUGH SITES -->
-                <t t-foreach="sites" t-as="site_id">
+                <!-- LOOP THROUGH SITES IN STOP ORDER -->
+                <t t-foreach="sites" t-as="site_info">
+
+                  <t t-set="site_id" t-value="site_info[1]"/>
+                <t t-set="stop_number" t-value="site_info[2]"/>
 
                   <!-- ORDERS FOR THIS SITE -->
-                  <t t-set="site_orders" t-value="route_orders.filtered(                        lambda o:                        (o.partner_shipping_id.id or o.partner_id.id)                        == site_id                      )"/>
+                  <t t-set="site_orders" t-value="route_orders.filtered(                        lambda o:                          (o.partner_shipping_id.id or o.partner_id.id)                          == site_id                      )"/>
 
                   <!-- SITE NAME -->
                   <t t-set="site_name" t-value="site_orders[:1].partner_shipping_id.name                               or site_orders[:1].partner_id.name"/>
@@ -130,133 +119,87 @@
 
                   <!-- UPDATE ROUTE TOTALS -->
                   <t t-set="route_cases" t-value="route_cases + site_cases"/>
-
                   <t t-set="route_units" t-value="route_units + site_units"/>
-
                   <t t-set="route_weight" t-value="route_weight + site_weight"/>
 
                   <!-- SITE ROW -->
                   <tr>
-
-                    <!-- ROW NUMBER -->
                     <td style="border:1px solid #777;                                padding:9px;                                text-align:center;">
-
-                      <span t-esc="site_id_index + 1"/>
-
+                      <span t-esc="stop_number or ''"/>
                     </td>
 
-                    <!-- SITE NAME -->
-                    <td style="border:1px solid #777;                                padding:9px;">
-
+                    <td style="border:1px solid #777; padding:9px;">
                       <span t-esc="site_name"/>
-
                     </td>
 
-                    <!-- CASES -->
                     <td style="border:1px solid #777;                                padding:9px;                                text-align:right;">
-
                       <span t-esc="'%g' % site_cases"/>
-
                     </td>
 
-                    <!-- UNITS -->
                     <td style="border:1px solid #777;                                padding:9px;                                text-align:right;">
-
                       <span t-esc="'%g' % site_units"/>
-
                     </td>
 
-                    <!-- WEIGHT -->
                     <td style="border:1px solid #777;                                padding:9px;                                text-align:right;">
-
                       <span t-esc="'{:,.2f}'.format(site_weight)"/>
-
                     </td>
-
                   </tr>
 
                 </t>
 
                 <!-- ROUTE GRAND TOTAL -->
-                <tr style="background-color:#d9d9d9;                            font-weight:bold;">
-
+                <tr style="background-color:#d9d9d9; font-weight:bold;">
                   <td colspan="2" style="border:1px solid #777;                              padding:10px;                              text-align:right;">
-
                     ROUTE TOTAL
-
                   </td>
 
                   <td style="border:1px solid #777;                              padding:10px;                              text-align:right;">
-
                     <span t-esc="'%g' % route_cases"/>
-
                   </td>
 
                   <td style="border:1px solid #777;                              padding:10px;                              text-align:right;">
-
                     <span t-esc="'%g' % route_units"/>
-
                   </td>
 
                   <td style="border:1px solid #777;                              padding:10px;                              text-align:right;">
-
                     <span t-esc="'{:,.2f}'.format(route_weight)"/>
-
                   </td>
-
                 </tr>
 
               </tbody>
-
             </table>
 
             <!-- UPDATE DAILY TOTALS -->
             <t t-set="daily_cases" t-value="daily_cases + route_cases"/>
-
             <t t-set="daily_units" t-value="daily_units + route_units"/>
-
             <t t-set="daily_weight" t-value="daily_weight + route_weight"/>
 
           </t>
 
           <!-- DAILY GRAND TOTAL -->
           <table style="width:100%;                         border-collapse:collapse;                         margin-top:12px;                         margin-bottom:25px;                         font-size:12px;">
-
-            <tr style="background-color:#d9d9d9;                        font-weight:bold;">
-
+            <tr style="background-color:#d9d9d9; font-weight:bold;">
               <td style="width:48%;                          border:1px solid #777;                          padding:10px;                          text-align:right;">
-
                 DAILY GRAND TOTAL
-
               </td>
 
               <td style="width:16%;                          border:1px solid #777;                          padding:10px;                          text-align:right;">
-
                 <span t-esc="'%g' % daily_cases"/>
-
               </td>
 
               <td style="width:16%;                          border:1px solid #777;                          padding:10px;                          text-align:right;">
-
                 <span t-esc="'%g' % daily_units"/>
-
               </td>
 
               <td style="width:20%;                          border:1px solid #777;                          padding:10px;                          text-align:right;">
-
                 <span t-esc="'{:,.2f}'.format(daily_weight)"/>
-
               </td>
-
             </tr>
-
           </table>
 
         </t>
 
       </div>
-
     </t>
-
   </t>
 </t>
